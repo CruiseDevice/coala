@@ -1,12 +1,12 @@
-import os
+from os.path import relpath, abspath
 
-from coalib.misc.Decorators import (
-    enforce_signature, generate_ordering, generate_repr)
+from coala_utils.decorators import (
+    enforce_signature, generate_ordering, generate_repr, get_public_members)
 from coalib.results.TextPosition import TextPosition
 
 
-@generate_repr("file", "line", "column")
-@generate_ordering("file", "line", "column")
+@generate_repr('file', 'line', 'column')
+@generate_ordering('file', 'line', 'column')
 class SourcePosition(TextPosition):
 
     @enforce_signature
@@ -25,8 +25,14 @@ class SourcePosition(TextPosition):
         """
         TextPosition.__init__(self, line, column)
 
-        self._file = os.path.abspath(file)
+        self._file = abspath(file)
 
     @property
     def file(self):
         return self._file
+
+    def __json__(self, use_relpath=False):
+        _dict = get_public_members(self)
+        if use_relpath:
+            _dict['file'] = relpath(_dict['file'])
+        return _dict

@@ -9,7 +9,12 @@ def foobar_explosion(radius):
     A nice and neat way of documenting code.
     :param radius: The explosion radius.
     """
-    return 55 * radius
+    def get_55():
+        """
+        A function that returns 55.
+        """
+        return 55
+    return get_55() * radius
 
 """
 Docstring with layouted text.
@@ -35,3 +40,10 @@ def foobar_travel(country):
 """super
  nicely
 short"""
+
+def foobar_collision(impact):
+    """
+ A bad indented docstring
+        Improper indentation.
+    :param impact: The force of Impact.
+    """

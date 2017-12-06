@@ -14,5 +14,5 @@ class InteractionsTest(unittest.TestCase):
         self.assertRaises(AssertionError,
                           fail_acquire_settings,
                           log_printer,
-                          {"setting": ["description", "bear"]})
+                          {'setting': ['description', 'bear']})
         self.assertEqual(fail_acquire_settings(log_printer, {}), None)

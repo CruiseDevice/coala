@@ -11,50 +11,114 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import functools
+import logging
+import sys
 
 from pyprint.ConsolePrinter import ConsolePrinter
 
-from coalib.coala_main import run_coala
-from coalib.collecting.Collectors import collect_all_bears_from_sections
-from coalib.output.ConsoleInteraction import (
-    acquire_settings, nothing_done, print_results, print_section_beginning,
-    show_bears)
-from coalib.output.printers.LogPrinter import LogPrinter
+from dependency_management.requirements.PipRequirement import PipRequirement
+
+from coalib.parsing.FilterHelper import (
+    apply_filter, apply_filters, InvalidFilterException)
+from coalib.output.Logging import configure_logging
 from coalib.parsing.DefaultArgParser import default_arg_parser
-from coalib.settings.ConfigurationGathering import load_configuration
-from coalib.settings.SectionFilling import fill_settings
+from coalib.misc.Exceptions import get_exitcode
 
 
-def main():
-    # Note: We parse the args here once to check whether to show bears or not.
-    arg_parser = default_arg_parser()
-    args = arg_parser.parse_args()
+def main(debug=False):
+    configure_logging()
 
-    console_printer = ConsolePrinter()
-    if args.show_bears or args.show_all_bears:
-        log_printer = LogPrinter(console_printer)
-        sections, _ = load_configuration(arg_list=None, log_printer=log_printer)
-        if args.show_all_bears:
-            local_bears, global_bears = collect_all_bears_from_sections(
-                sections, log_printer)
-        else:
-            # We ignore missing settings as it's not important.
-            local_bears, global_bears = fill_settings(
-                sections,
-                acquire_settings=lambda *args, **kwargs: {},
-                log_printer=log_printer)
-        show_bears(local_bears, global_bears, args.show_all_bears,
-                   console_printer)
-        return 0
+    args = None  # to have args variable in except block when parse_args fails
+    try:
+        # Note: We parse the args here once to check whether to show bears or
+        # not.
+        args = default_arg_parser().parse_args()
+        if args.debug:
+            req_ipdb = PipRequirement('ipdb')
+            if not req_ipdb.is_installed():
+                logging.error('--debug flag requires ipdb. '
+                              'You can install it with:\n%s',
+                              ' '.join(req_ipdb.install_command()))
+                sys.exit(13)
 
-    partial_print_sec_beg = functools.partial(
-        print_section_beginning,
-        console_printer)
-    results, exitcode = run_coala(
-        print_results=print_results,
-        acquire_settings=acquire_settings,
-        print_section_beginning=partial_print_sec_beg,
-        nothing_done=nothing_done)
+        if debug or args.debug:
+            args.log_level = 'DEBUG'
 
-    return exitcode
+        # Defer imports so if e.g. --help is called they won't be run
+        from coalib.coala_modes import (
+            mode_format, mode_json, mode_non_interactive, mode_normal)
+        from coalib.output.ConsoleInteraction import (
+            show_bears, show_language_bears_capabilities)
+
+        console_printer = ConsolePrinter(print_colored=not args.no_color)
+        configure_logging(not args.no_color)
+
+        if args.show_bears:
+            from coalib.settings.ConfigurationGathering import get_all_bears
+            kwargs = {}
+            if args.bears:
+                kwargs['bear_globs'] = args.bears
+            filtered_bears = get_all_bears(**kwargs)
+            if args.filter_by_language:
+                logging.warning(
+                    "'--filter-by-language ...' is deprecated. "
+                    "Use '--filter-by language ...' instead.")
+                if args.filter_by is None:
+                    args.filter_by = []
+                args.filter_by.append(['language'] + args.filter_by_language)
+            if args.filter_by:
+                # Each iteration of the following loop applies
+                # filters one by one provided as arguments
+                try:
+                    filtered_bears = apply_filters(
+                        args.filter_by, filtered_bears)
+                except InvalidFilterException as ex:
+                    # If filter is not available
+                    console_printer.print(ex)
+                    return 2
+
+            local_bears, global_bears = filtered_bears
+            show_bears(local_bears,
+                       global_bears,
+                       args.show_description or args.show_details,
+                       args.show_details,
+                       console_printer,
+                       args)
+
+            return 0
+        elif args.show_capabilities:
+            from coalib.collecting.Collectors import (
+                filter_capabilities_by_languages)
+            local_bears, _ = apply_filter('language', args.show_capabilities)
+            capabilities = filter_capabilities_by_languages(
+                local_bears, args.show_capabilities)
+            show_language_bears_capabilities(capabilities, console_printer)
+
+            return 0
+
+        if args.json:
+            return mode_json(args, debug=debug)
+
+    except BaseException as exception:  # pylint: disable=broad-except
+        if not isinstance(exception, SystemExit):
+            if args and args.debug:
+                import ipdb
+                with ipdb.launch_ipdb_on_exception():
+                    raise
+
+            if debug:
+                raise
+
+        return get_exitcode(exception)
+
+    if args.format:
+        return mode_format(args, debug=debug)
+
+    if args.non_interactive:
+        return mode_non_interactive(console_printer, args, debug=debug)
+
+    return mode_normal(console_printer, None, args, debug=debug)
+
+
+if __name__ == '__main__':  # pragma: no cover
+    main()

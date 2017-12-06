@@ -60,23 +60,24 @@ def validate_results(message_queue, timeout, result_list, name, args, kwargs):
             send_msg(message_queue,
                      timeout,
                      LOG_LEVEL.ERROR,
-                     "The results from the bear {bear} could only be "
-                     "partially processed with arguments {arglist}, "
-                     "{kwarglist}"
+                     'The results from the bear {bear} could only be '
+                     'partially processed with arguments {arglist}, '
+                     '{kwarglist}'
                      .format(bear=name, arglist=args, kwarglist=kwargs))
             send_msg(message_queue,
                      timeout,
                      LOG_LEVEL.DEBUG,
-                     "One of the results in the list for the bear {bear} is "
-                     "an instance of {ret} but it should be an instance of "
-                     "Result"
+                     'One of the results in the list for the bear {bear} is '
+                     'an instance of {ret} but it should be an instance of '
+                     'Result'
                      .format(bear=name, ret=result.__class__))
             result_list.remove(result)
 
     return result_list
 
 
-def run_bear(message_queue, timeout, bear_instance, *args, **kwargs):
+def run_bear(message_queue, timeout, bear_instance, *args, debug=False,
+             **kwargs):
     """
     This method is responsible for executing the instance of a bear. It also
     reports or logs errors if any occur during the execution of that bear
@@ -93,29 +94,31 @@ def run_bear(message_queue, timeout, bear_instance, *args, **kwargs):
     :param kwargs:        The keyword arguments that are to be passed to the
                           bear.
     :return:              Returns a valid list of objects of the type Result
-                          if the bear executed succesfully. None otherwise.
+                          if the bear executed successfully. None otherwise.
     """
-    if kwargs.get("dependency_results", True) is None:
-        del kwargs["dependency_results"]
+    if kwargs.get('dependency_results', True) is None:
+        del kwargs['dependency_results']
 
-    name = bear_instance.__class__.__name__
+    name = bear_instance.name
 
     try:
-        result_list = bear_instance.execute(*args, **kwargs)
-    except:
+        result_list = bear_instance.execute(*args, debug=debug, **kwargs)
+    except (Exception, SystemExit) as exc:
+        if debug and not isinstance(exc, SystemExit):
+            raise
+
         send_msg(message_queue,
                  timeout,
                  LOG_LEVEL.ERROR,
-                 "The bear {bear} failed to run with the arguments "
-                 "{arglist}, {kwarglist}. Skipping bear..."
+                 'The bear {bear} failed to run with the arguments '
+                 '{arglist}, {kwarglist}. Skipping bear...'
                  .format(bear=name, arglist=args, kwarglist=kwargs))
         send_msg(message_queue,
                  timeout,
                  LOG_LEVEL.DEBUG,
-                 "Traceback for error in bear {bear}:"
-                 .format(bear=name),
+                 'Traceback for error in bear {}:'.format(name),
                  traceback.format_exc(),
-                 delimiter="\n")
+                 delimiter='\n')
 
         return None
 
@@ -136,12 +139,12 @@ def get_local_dependency_results(local_result_list, bear_instance):
                               results are picked.
     :param bear_instance:     The instance of a local bear to get the
                               dependencies from.
-    :return:                  Return none if their are no dependencies for the
+    :return:                  Return none if there are no dependencies for the
                               bear. Else return a dictionary containing
                               dependency results.
     """
-    deps = bear_instance.get_dependencies()
-    if deps == []:
+    deps = bear_instance.BEAR_DEPS
+    if not deps:
         return None
 
     dependency_results = {}
@@ -163,7 +166,8 @@ def run_local_bear(message_queue,
                    local_result_list,
                    file_dict,
                    bear_instance,
-                   filename):
+                   filename,
+                   debug=False):
     """
     Runs an instance of a local bear. Checks if bear_instance is of type
     LocalBear and then passes it to the run_bear to execute.
@@ -187,15 +191,16 @@ def run_local_bear(message_queue,
         send_msg(message_queue,
                  timeout,
                  LOG_LEVEL.WARNING,
-                 "A given local bear ({}) is not valid. Leaving "
-                 "it out...".format(bear_instance.__class__.__name__),
+                 'A given local bear ({}) is not valid. Leaving '
+                 'it out...'.format(bear_instance.__class__.__name__),
                  Constants.THIS_IS_A_BUG)
 
         return None
 
-    kwargs = {"dependency_results":
+    kwargs = {'dependency_results':
               get_local_dependency_results(local_result_list,
-                                           bear_instance)}
+                                           bear_instance),
+              'debug': debug}
     return run_bear(message_queue,
                     timeout,
                     bear_instance,
@@ -207,7 +212,8 @@ def run_local_bear(message_queue,
 def run_global_bear(message_queue,
                     timeout,
                     global_bear_instance,
-                    dependency_results):
+                    dependency_results,
+                    debug=False):
     """
     Runs an instance of a global bear. Checks if bear_instance is of type
     GlobalBear and then passes it to the run_bear to execute.
@@ -231,14 +237,15 @@ def run_global_bear(message_queue,
         send_msg(message_queue,
                  timeout,
                  LOG_LEVEL.WARNING,
-                 "A given global bear ({}) is not valid. Leaving it "
-                 "out..."
+                 'A given global bear ({}) is not valid. Leaving it '
+                 'out...'
                  .format(global_bear_instance.__class__.__name__),
                  Constants.THIS_IS_A_BUG)
 
         return None
 
-    kwargs = {"dependency_results": dependency_results}
+    kwargs = {'dependency_results': dependency_results,
+              'debug': debug}
     return run_bear(message_queue,
                     timeout,
                     global_bear_instance,
@@ -251,7 +258,8 @@ def run_local_bears_on_file(message_queue,
                             local_bear_list,
                             local_result_dict,
                             control_queue,
-                            filename):
+                            filename,
+                            debug=False):
     """
     This method runs a list of local bears on one file.
 
@@ -277,13 +285,13 @@ def run_local_bears_on_file(message_queue,
         send_msg(message_queue,
                  timeout,
                  LOG_LEVEL.ERROR,
-                 "An internal error occurred.",
+                 'An internal error occurred.',
                  Constants.THIS_IS_A_BUG)
         send_msg(message_queue,
                  timeout,
                  LOG_LEVEL.DEBUG,
-                 "The given file through the queue is not in the file "
-                 "dictionary.")
+                 'The given file through the queue is not in the file '
+                 'dictionary.')
 
         return
 
@@ -294,7 +302,8 @@ def run_local_bears_on_file(message_queue,
                                 local_result_list,
                                 file_dict,
                                 bear_instance,
-                                filename)
+                                filename,
+                                debug=debug)
         if result is not None:
             local_result_list.extend(result)
 
@@ -314,8 +323,8 @@ def get_global_dependency_results(global_result_dict, bear_instance):
                                otherwise.
     """
     try:
-        deps = bear_instance.get_dependencies()
-        if deps == []:
+        deps = bear_instance.BEAR_DEPS
+        if not deps:
             return None
     except AttributeError:
         # When this occurs we have an invalid bear and a warning will be
@@ -363,7 +372,7 @@ def get_next_global_bear(timeout,
         if dependency_results is False:
             global_bear_queue.put(bear_id)
 
-    return bear, bear.__class__.__name__, dependency_results
+    return bear, dependency_results
 
 
 def task_done(obj):
@@ -373,7 +382,7 @@ def task_done(obj):
 
     :param obj: Any object.
     """
-    if hasattr(obj, "task_done"):
+    if hasattr(obj, 'task_done'):
         obj.task_done()
 
 
@@ -383,7 +392,8 @@ def run_local_bears(filename_queue,
                     file_dict,
                     local_bear_list,
                     local_result_dict,
-                    control_queue):
+                    control_queue,
+                    debug=False):
     """
     Run local bears on all the files given.
 
@@ -415,7 +425,8 @@ def run_local_bears(filename_queue,
                                     local_bear_list,
                                     local_result_dict,
                                     control_queue,
-                                    filename)
+                                    filename,
+                                    debug=debug)
             task_done(filename_queue)
     except queue.Empty:
         return
@@ -426,7 +437,8 @@ def run_global_bears(message_queue,
                      global_bear_queue,
                      global_bear_list,
                      global_result_dict,
-                     control_queue):
+                     control_queue,
+                     debug=False):
     """
     Run all global bears.
 
@@ -450,12 +462,14 @@ def run_global_bears(message_queue,
     """
     try:
         while True:
-            bear, bearname, dep_results = (
+            bear, dep_results = (
                 get_next_global_bear(timeout,
                                      global_bear_queue,
                                      global_bear_list,
                                      global_result_dict))
-            result = run_global_bear(message_queue, timeout, bear, dep_results)
+            bearname = bear.__class__.__name__
+            result = run_global_bear(message_queue, timeout, bear, dep_results,
+                                     debug=debug)
             if result:
                 global_result_dict[bearname] = result
                 control_queue.put((CONTROL_ELEMENT.GLOBAL, bearname))
@@ -475,7 +489,8 @@ def run(file_name_queue,
         global_result_dict,
         message_queue,
         control_queue,
-        timeout=0):
+        timeout=0,
+        debug=False):
     """
     This is the method that is actually runs by processes.
 
@@ -532,7 +547,8 @@ def run(file_name_queue,
                         file_dict,
                         local_bear_list,
                         local_result_dict,
-                        control_queue)
+                        control_queue,
+                        debug=debug)
         control_queue.put((CONTROL_ELEMENT.LOCAL_FINISHED, None))
 
         run_global_bears(message_queue,
@@ -540,7 +556,9 @@ def run(file_name_queue,
                          global_bear_queue,
                          global_bear_list,
                          global_result_dict,
-                         control_queue)
+                         control_queue,
+                         debug=debug)
         control_queue.put((CONTROL_ELEMENT.GLOBAL_FINISHED, None))
     except (OSError, KeyboardInterrupt):  # pragma: no cover
-        pass
+        if debug:
+            raise

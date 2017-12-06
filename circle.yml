@@ -1,32 +1,31 @@
 dependencies:
   cache_directories:
-    - ~/.pyenv/versions/3.3.6
     - ~/.pyenv/versions/3.4.3
     - ~/.pyenv/versions/3.5.1
-    - ~/coala/node_modules
+    - ~/nltk_data
+    - docs/_build
   pre:
-    - echo 'export PATH=$PATH:~/coala/node_modules/.bin' >> ~/.circlerc
     - sed -i '/source \/home\/ubuntu\/virtualenvs\//d' ~/.circlerc
     - nvm alias default node
+    - npm install -g csslint
   override:
     - bash .misc/deps.sh
 
 test:
   override:
-    - bash .misc/tests.sh:
+    - py.test:
+        parallel: true
+    - pip install pip setuptools -U:
         parallel: true
     - python setup.py install:
         parallel: true
-    - pip install coala-bears --pre -U:
+    - pip install coala-bears[alldeps] --pre -U:
         parallel: true
-    - coala-ci:
+        timeout: 1800  # Allow 30 mins
+    - pip install -r docs-requirements.txt:
         parallel: true
-    - bash .misc/deploy.coverage.sh:
+    - coala --non-interactive:
         parallel: true
-    - rm -rf docs/API && make -C docs clean
-    - sphinx-apidoc -f -o docs/API/ coalib tests
-    - make -C docs html SPHINXOPTS=-W
-
-notify:
-  webhooks:
-    - url: https://webhooks.gitter.im/e/9f718e67e18393c83881
+    - codecov:
+        parallel: true
+    - python setup.py docs

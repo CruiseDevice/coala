@@ -6,7 +6,7 @@ from distutils.errors import DistutilsOptionError
 
 class BuildManPage(Command):
     """
-    Add a `build_manpage` command  to your setup.py.
+    Add a ``build_manpage`` command  to your setup.py.
     To use this Command class add a command to call this class::
 
         # For setuptools
@@ -30,7 +30,7 @@ class BuildManPage(Command):
             --parser=coalib.parsing.DefaultArgParser:default_arg_parser
 
     If automatically want to build the man page every time you invoke
-    your build, add to your ```setup.cfg``` the following::
+    your build, add to your ``setup.cfg`` the following::
 
         [build_manpage]
         output = <appname>.1
@@ -68,9 +68,9 @@ class BuildManPage(Command):
         _license = dist.get_license()
         appname = self._parser.prog
 
-        sections = {"see also": ("Online documentation: {}".format(homepage)),
-                    "maintainer(s)": maintainer,
-                    "license": _license}
+        sections = {'see also': ('Online documentation: {}'.format(homepage)),
+                    'maintainer(s)': maintainer,
+                    'license': _license}
 
         dist = self.distribution
         mpf = ManPageFormatter(appname,
@@ -142,11 +142,11 @@ class ManPageFormatter(argparse.HelpFormatter):
 
     @staticmethod
     def _underline(string):
-        return ManPageFormatter._add_format(string, "\\fI", "\\fR")
+        return ManPageFormatter._add_format(string, '\\fI', '\\fR')
 
     @staticmethod
     def _bold(string):
-        return ManPageFormatter._add_format(string, "\\fB", "\\fR")
+        return ManPageFormatter._add_format(string, '\\fB', '\\fR')
 
     def _mk_title(self):
         return '.TH {0} {1} {2}\n'.format(self._prog,
@@ -202,7 +202,7 @@ class ManPageFormatter(argparse.HelpFormatter):
         footer = []
 
         for section in sorted(sections.keys()):
-            part = ".SH {}\n {}".format(section.upper(), sections[section])
+            part = '.SH {}\n {}'.format(section.upper(), sections[section])
             footer.append(part)
 
         return '\n'.join(footer)

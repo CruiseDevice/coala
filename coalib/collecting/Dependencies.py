@@ -1,17 +1,4 @@
-class CircularDependencyError(Exception):
-
-    @classmethod
-    def for_bears(cls, bears):
-        """
-        Creates the CircularDependencyError with a helpful message about the
-        dependency.
-        """
-        bear_names = []
-
-        for bear in bears:
-            bear_names.append(bear.__name__)
-
-        return cls("Circular dependency detected: " + " -> ".join(bear_names))
+from coalib.core.CircularDependencyError import CircularDependencyError
 
 
 def _resolve(bears, resolved_bears, seen):
@@ -20,13 +7,13 @@ def _resolve(bears, resolved_bears, seen):
             continue
 
         missing = bear.missing_dependencies(resolved_bears)
-        if missing == []:
+        if not missing:
             resolved_bears.append(bear)
             continue
 
         if bear in seen:
             seen.append(bear)
-            raise CircularDependencyError.for_bears(seen)
+            raise CircularDependencyError(s.name for s in seen)
 
         seen.append(bear)
         resolved_bears = _resolve(missing, resolved_bears, seen)

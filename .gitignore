@@ -1,3 +1,4 @@
+.DS_Store
 .directory
 .idea
 .kdev4
@@ -26,7 +27,6 @@ coala.1
 src
 site
 .zanata-cache
-org.coala_analyzer.v1.service
 *.exe
 .cache
 *.eggs
@@ -35,4 +35,6 @@ node_modules
 *.jar
 .vendor
 Goopfile.lock
-docs/API/
+venv/
+rultor_secrets.sh
+.vscode
