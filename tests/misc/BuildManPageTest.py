@@ -115,11 +115,8 @@ class BuildManPageTest(unittest.TestCase):
         self.assertRaises(DistutilsOptionError, uut.finalize_options)
         with make_temp() as uut.output:
             self.assertRaises(DistutilsOptionError, uut.finalize_options)
-<<<<<<< HEAD:tests/misc/BuildManPageTest.py
             uut.parser = "tests.misc.BuildManPageTest:test_arg_parser"
-=======
             uut.parser = 'tests.misc.BuildManPageTest:test_arg_parser'
->>>>>>> upstream/master:tests/misc/BuildManPageTest.py
 
             uut.finalize_options()
             self.assertIsInstance(uut._parser, argparse.ArgumentParser)
